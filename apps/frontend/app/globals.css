@@ -1,0 +1,11 @@
+@import "tailwindcss";
+:root { color-scheme: light; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: #fafcf9; color: #17372c; }
+.container { width: min(1120px, calc(100% - 40px)); margin-inline: auto; }
+button, a, input, textarea { outline-offset: 4px; }
+button:disabled { cursor: wait; }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; }
+}

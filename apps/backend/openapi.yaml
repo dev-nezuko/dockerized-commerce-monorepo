@@ -1,0 +1,146 @@
+openapi: 3.0.3
+info:
+  title: eco-bottle API
+  description: API documentation for the eco-bottle demo
+  version: 0.1.0
+servers:
+  - url: http://localhost:4000
+    description: Local dev
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200': { description: OK }
+  /metrics:
+    get:
+      tags: [Metrics]
+      summary: Prometheus metrics
+      responses:
+        '200': { description: OK }
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+  /api/products:
+    get:
+      tags: [Products]
+      summary: List products
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, example: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, example: 12 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductList'
+    post:
+      tags: [Products]
+      summary: Create product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Product'
+      responses:
+        '201': { description: Created }
+  /api/leads:
+    post:
+      tags: [Leads]
+      summary: Create lead
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LeadRequest'
+      responses:
+        '201': { description: Created }
+components:
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+    RegisterResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+    LoginResponse:
+      type: object
+      properties:
+        token: { type: string, description: Access token }
+    Product:
+      type: object
+      required: [slug, name, priceCents, imageUrl, shortDescription]
+      properties:
+        id: { type: string, format: uuid }
+        slug: { type: string }
+        name: { type: string }
+        priceCents: { type: integer }
+        imageUrl: { type: string }
+        shortDescription: { type: string }
+    ProductList:
+      type: object
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Product' }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+    LeadRequest:
+      type: object
+      required: [name, email]
+      properties:
+        name: { type: string, minLength: 2 }
+        email: { type: string, format: email }
+        message: { type: string, maxLength: 500 }
+        utmSource: { type: string }

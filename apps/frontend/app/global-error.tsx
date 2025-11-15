@@ -1,0 +1,21 @@
+"use client";
+
+import React from 'react';
+
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  React.useEffect(() => {
+    console.error(error);
+  }, [error]);
+
+  return (
+    <html>
+      <body>
+        <div className="container py-20">
+          <h2 className="text-2xl font-semibold mb-2">App crashed</h2>
+          <p className="mb-6 text-gray-600">Please try again later.</p>
+          <button className="px-4 py-2 rounded-md bg-black text-white" onClick={() => reset()}>Reload</button>
+        </div>
+      </body>
+    </html>
+  );
+}
