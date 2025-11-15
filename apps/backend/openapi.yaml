@@ -1,132 +1,204 @@
 openapi: 3.0.3
 info:
-  title: eco-bottle API
-  description: API documentation for the eco-bottle demo
-  version: 0.1.0
+  title: Eco Bottle API
+  description: Catalog, enquiry and local-account API behind the Eco Bottle demo storefront.
+  version: 0.2.0
 servers:
   - url: http://localhost:4000
-    description: Local dev
+    description: Local development
 paths:
   /health:
     get:
-      tags: [Health]
-      summary: Health check
+      tags: [Operations]
+      summary: Liveness (the process is serving HTTP)
       responses:
         '200': { description: OK }
+  /ready:
+    get:
+      tags: [Operations]
+      summary: Readiness (Postgres and Redis reachable)
+      responses:
+        '200': { description: Ready }
+        '503': { description: A dependency is unavailable }
   /metrics:
     get:
-      tags: [Metrics]
-      summary: Prometheus metrics
+      tags: [Operations]
+      summary: Prometheus metrics (not published through Nginx)
       responses:
         '200': { description: OK }
-  /api/auth/register:
+  /api/products:
+    get:
+      tags: [Products]
+      summary: List products, newest first
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1, maximum: 100000, default: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, default: 20 }, description: Values above 100 are capped at 100 }
+      responses:
+        '200':
+          description: OK (sends ETag and Server-Timing headers)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProductList' }
+        '304': { description: Not modified (If-None-Match matched) }
+        '400': { description: Invalid pagination }
+        '429': { description: Rate limited (300 requests a minute per address) }
     post:
-      tags: [Auth]
-      summary: Register
+      tags: [Products]
+      summary: Create a product (only when ENABLE_DEMO_PRODUCT_WRITES=true)
+      security: [{ bearerAuth: [] }]
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/RegisterRequest'
+            schema: { $ref: '#/components/schemas/ProductInput' }
+      responses:
+        '201': { description: Created }
+        '401': { description: Missing, invalid or revoked token }
+        '403': { description: Product writes are disabled }
+        '409': { description: Slug already in use }
+  /api/products/{slug}:
+    get:
+      tags: [Products]
+      summary: Product detail
+      parameters:
+        - { in: path, name: slug, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Product' }
+        '404': { description: Not found }
+  /api/products/{id}:
+    put:
+      tags: [Products]
+      summary: Update a product (demo writes only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductInput' }
+      responses:
+        '200': { description: Updated }
+        '403': { description: Product writes are disabled }
+        '404': { description: Not found }
+        '409': { description: Slug already in use }
+    delete:
+      tags: [Products]
+      summary: Delete a product (demo writes only)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Deleted }
+        '403': { description: Product writes are disabled }
+        '404': { description: Not found }
+  /api/leads:
+    post:
+      tags: [Leads]
+      summary: Store an enquiry (5 a minute per address)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LeadRequest' }
+      responses:
+        '201':
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  createdAt: { type: string, format: date-time }
+        '400': { description: Validation error }
+        '429': { description: Rate limited }
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Create a local account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credentials' }
       responses:
         '201':
           description: Created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RegisterResponse'
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  email: { type: string, format: email }
+        '409': { description: Email already in use }
   /api/auth/login:
     post:
       tags: [Auth]
-      summary: Login
+      summary: Exchange credentials for a 15-minute token
       requestBody:
         required: true
         content:
           application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
+            schema: { $ref: '#/components/schemas/Credentials' }
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/LoginResponse'
-  /api/products:
+                type: object
+                properties:
+                  token: { type: string }
+        '401': { description: Invalid credentials }
+  /api/auth/me:
     get:
-      tags: [Products]
-      summary: List products
-      parameters:
-        - in: query
-          name: page
-          schema: { type: integer, example: 1 }
-        - in: query
-          name: limit
-          schema: { type: integer, example: 12 }
+      tags: [Auth]
+      summary: The account behind the token
+      security: [{ bearerAuth: [] }]
       responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProductList'
+        '200': { description: OK }
+        '401': { description: Missing, invalid or revoked token }
+  /api/auth/logout:
     post:
-      tags: [Products]
-      summary: Create product
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Product'
+      tags: [Auth]
+      summary: Revoke the current token until it expires
+      security: [{ bearerAuth: [] }]
       responses:
-        '201': { description: Created }
-  /api/leads:
-    post:
-      tags: [Leads]
-      summary: Create lead
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LeadRequest'
-      responses:
-        '201': { description: Created }
+        '204': { description: Revoked }
+        '401': { description: Missing, invalid or revoked token }
 components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
   schemas:
-    RegisterRequest:
+    Credentials:
       type: object
       required: [email, password]
       properties:
-        email: { type: string, format: email }
-        password: { type: string, minLength: 8 }
-    RegisterResponse:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        email: { type: string, format: email }
-    LoginRequest:
-      type: object
-      required: [email, password]
-      properties:
-        email: { type: string, format: email }
-        password: { type: string, minLength: 8 }
-    LoginResponse:
-      type: object
-      properties:
-        token: { type: string, description: Access token }
-    Product:
+        email: { type: string, format: email, description: Trimmed and lower-cased }
+        password: { type: string, minLength: 8, maxLength: 128 }
+    ProductInput:
       type: object
       required: [slug, name, priceCents, imageUrl, shortDescription]
       properties:
-        id: { type: string, format: uuid }
-        slug: { type: string }
-        name: { type: string }
-        priceCents: { type: integer }
-        imageUrl: { type: string }
-        shortDescription: { type: string }
+        slug: { type: string, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$' }
+        name: { type: string, maxLength: 200 }
+        priceCents: { type: integer, minimum: 0 }
+        imageUrl: { type: string, description: 'http(s) URL, a /path under the frontend public folder, or a Cloudinary public id' }
+        shortDescription: { type: string, maxLength: 500 }
+    Product:
+      allOf:
+        - $ref: '#/components/schemas/ProductInput'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
     ProductList:
       type: object
       properties:
@@ -138,9 +210,9 @@ components:
         limit: { type: integer }
     LeadRequest:
       type: object
-      required: [name, email]
+      required: [name, email, message]
       properties:
-        name: { type: string, minLength: 2 }
+        name: { type: string, minLength: 1, maxLength: 120 }
         email: { type: string, format: email }
-        message: { type: string, maxLength: 500 }
-        utmSource: { type: string }
+        message: { type: string, minLength: 1, maxLength: 500 }
+        utmSource: { type: string, maxLength: 120 }

@@ -1,5 +1,12 @@
-# Eco Bottle browser client
+# Eco Bottle frontend
 
-See the [repository guide](../../README.md) for local configuration, screenshots, the API contract, and verification limits.
+Next.js 16 (App Router) storefront: a server-rendered catalog with SWR revalidation and a product enquiry form. Setup, screenshots and the API contract are in the [repository README](../../README.md).
 
-This Next.js client renders a catalog and enquiry form. It is not a checkout. Use the component npm lockfile, keep private values out of public environment variables, and provide a server API origin separately from the browser origin.
+```sh
+npm ci
+cp .env.example .env.local   # API URLs; both are public values
+npm run dev                  # http://localhost:3000
+npm test && npm run lint && npm run typecheck
+```
+
+`NEXT_PUBLIC_API_URL` is compiled into the browser bundle, so never put a secret in it. `INTERNAL_API_URL` is what the Next.js server uses while rendering.
