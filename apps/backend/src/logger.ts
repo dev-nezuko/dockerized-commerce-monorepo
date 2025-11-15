@@ -22,5 +22,5 @@ export const logger = pino({
 export const httpLogger = pinoHttp({
   logger,
   genReqId: () => randomUUID(),
-  customProps: (req, res) => ({ traceId: (req as any).id, statusCode: res.statusCode }),
+  customProps: (req, res) => ({ traceId: req.id, statusCode: res.statusCode }),
 });

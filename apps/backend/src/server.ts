@@ -32,9 +32,8 @@ export function buildExpressApp(): Application {
 
   // Echo request id back to client
   app.use((req, res, next) => {
-    const id = (req as any).id as string | undefined;
-    if (id) {
-      res.setHeader('x-request-id', id);
+    if (req.id !== undefined) {
+      res.setHeader('x-request-id', String(req.id));
     }
     next();
   });

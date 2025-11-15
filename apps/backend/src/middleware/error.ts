@@ -18,7 +18,7 @@ export class AuthError extends Error {
 }
 
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
-  const traceId = (req as any).id as string | undefined;
+  const traceId = req.id === undefined ? undefined : String(req.id);
 
   if (err instanceof ZodError) {
     res.status(400).json({ error: 'ValidationError', details: err.flatten(), traceId });
@@ -26,13 +26,12 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   }
 
   if (err instanceof NotFoundError || err instanceof AuthError) {
-    const status = (err as any).status ?? 500;
-    res.status(status).json({ error: err.name, details: err.message, traceId });
+    res.status(err.status).json({ error: err.name, details: err.message, traceId });
     return;
   }
 
-  const anyErr = err as any;
-  const status = typeof anyErr?.status === 'number' ? anyErr.status : 500;
+  const reported = (err as { status?: unknown } | null)?.status;
+  const status = typeof reported === 'number' ? reported : 500;
   const message = status >= 500 ? 'Request could not be completed' : 'Invalid request';
   res.status(status).json({ error: 'InternalServerError', details: message, traceId });
 }

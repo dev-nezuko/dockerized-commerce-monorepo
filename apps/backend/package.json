@@ -9,11 +9,12 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint .",
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:gen": "pnpm typeorm migration:generate -d src/data-source.ts src/migrations/Auto",
     "migration:run": "pnpm typeorm migration:run -d src/data-source.ts",
-    "seed": "ts-node src/seeds/seed.ts"
+    "seed": "ts-node src/seeds/seed.ts",
+    "test": "node --test test/*.test.cjs"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

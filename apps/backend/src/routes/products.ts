@@ -77,9 +77,9 @@ export function productsRouter(): express.Router {
       const started = Date.now();
       const { value, hit } = await withCache(key, 300, async () => {
         const item = await repo.findOne({ where: { slug } });
-        return item ?? { __notFound: true };
+        return item ?? { __notFound: true as const };
       });
-      if ((value as any).__notFound) {
+      if ('__notFound' in value) {
         return res.status(404).json({ error: 'Not Found' });
       }
       const dbMs = Date.now() - started;

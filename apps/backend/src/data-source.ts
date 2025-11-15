@@ -5,8 +5,6 @@ import { User } from './entities/User';
 import { Product } from './entities/Product';
 import { Lead } from './entities/Lead';
 
-const isDev = env.NODE_ENV !== 'production';
-
 export const AppDataSource = new DataSource({
   type: 'postgres',
   url: env.DATABASE_URL,

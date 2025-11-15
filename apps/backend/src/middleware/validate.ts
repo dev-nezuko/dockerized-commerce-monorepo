@@ -1,13 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
 import type { ZodSchema } from 'zod';
 
-export type RequestPart = 'body' | 'query' | 'params';
-
-export function validate(schema: ZodSchema, part: RequestPart = 'body') {
+export function validate(schema: ZodSchema) {
   return (req: Request, _res: Response, next: NextFunction) => {
     try {
-      const parsed = schema.parse((req as any)[part]);
-      (req as any)[part] = parsed;
+      req.body = schema.parse(req.body);
       next();
     } catch (err) {
       next(err);

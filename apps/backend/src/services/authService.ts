@@ -40,8 +40,8 @@ export async function logout(jti: string, expSeconds: number): Promise<void> {
 
 export function getTokenJti(token: string): string | undefined {
   try {
-    const decoded = jwt.decode(token, { complete: true }) as { payload?: any } | null;
-    return decoded?.payload?.jti as string | undefined;
+    const decoded = jwt.decode(token, { json: true });
+    return decoded?.jti;
   } catch {
     return undefined;
   }
@@ -49,11 +49,10 @@ export function getTokenJti(token: string): string | undefined {
 
 export function verify(token: string): { userId: string; email: string; exp: number; jti: string } {
   try {
-    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] }) as any;
-    const jti = decoded.jti as string | undefined;
-    if (!jti) throw new AuthError('Invalid token');
-    return { userId: decoded.sub as string, email: decoded.email as string, exp: decoded.exp as number, jti };
-  } catch (err) {
+    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ['HS256'] });
+    if (typeof decoded === 'string' || !decoded.jti || !decoded.sub || !decoded.exp) throw new AuthError('Invalid token');
+    return { userId: decoded.sub, email: String(decoded.email), exp: decoded.exp, jti: decoded.jti };
+  } catch {
     throw new AuthError('Invalid token');
   }
 }

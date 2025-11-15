@@ -1,4 +1,5 @@
-const { test, after } = require('node:test');
+require('../scripts/register-ts.cjs');
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const Module = require('node:module');
 const http = require('node:http');
@@ -6,14 +7,14 @@ const originalLoad = Module._load;
 process.env.DATABASE_URL = 'postgresql://local:local@127.0.0.1:1/unused';
 process.env.JWT_SECRET = 'synthetic-unit-test-key-'.repeat(3);
 const repo = { findAndCount: async () => [[], 0] };
-Module._load = function(request, parent, main) {
+Module._load = function(request, ...rest) {
   if (request === '../data-source') return { AppDataSource: { getRepository: () => repo } };
   if (request === '../middleware/auth') return { requireAuth: () => (_req, _res, next) => next() };
   if (request === '../services/cache') return {
     withCache: async (_key, _ttl, factory) => ({ value: await factory(), hit: false }),
     invalidateBySet: async () => {}, removeKey: async () => {},
   };
-  return originalLoad.apply(this, arguments);
+  return originalLoad.call(this, request, ...rest);
 };
 const express = require('express');
 const { productsRouter } = require('../src/routes/products');

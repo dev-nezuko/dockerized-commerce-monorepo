@@ -20,6 +20,10 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    files: ["test/**/*.cjs"],
+    rules: { "@typescript-eslint/no-require-imports": "off" },
+  },
 ];
 
 export default eslintConfig;
