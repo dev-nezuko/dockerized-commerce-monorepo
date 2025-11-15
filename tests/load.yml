@@ -20,4 +20,4 @@ scenarios:
           url: "/api/products?page=1&limit=12"
       - think: 0.1
       - get:
-          url: "/api/products/eco-bottle-pro"
+          url: "/api/products/eco-glass-bottle-500ml"

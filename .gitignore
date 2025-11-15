@@ -22,27 +22,13 @@ pnpm-debug.log*
 # OS
 .DS_Store
 
-# Tooling
-.husky/_/*
-
 # Docker
 docker-data/
 postgres-data/
 redis-data/
 
-# Lockfiles (allow pnpm lock at root)
-# If you decide to commit pnpm-lock.yaml, remove this ignore
-pnpm-lock.yaml
-
-node_modules/
-dist/
-.next/
-coverage/
+# Load-test output
 reports/
-.env
-.env.local
-!.env.example
-.test-build/
 
 # Local environments, caches and scratch output
 project_venv/
