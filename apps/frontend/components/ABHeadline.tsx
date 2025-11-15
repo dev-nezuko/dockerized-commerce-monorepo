@@ -1,19 +1,14 @@
-"use client";
+'use client';
 
 import { useSearchParams } from 'next/navigation';
 
-declare global {
-  interface Window {
-    analytics?: { track?: (event: string, props?: Record<string, unknown>) => void };
-  }
-}
+const HEADLINES = {
+  a: 'Hydrate sustainably. Perform daily.',
+  b: 'Save plastic. Elevate your routine.',
+} as const;
 
-export function ABHeadline() {
-  const sp = useSearchParams();
-  const variant = (sp.get('variant') || 'a').toLowerCase();
-  const text = variant === 'b' ? 'Save Plastic. Elevate Your Routine.' : 'Hydrate Sustainably. Perform Daily.';
-  if (typeof window !== 'undefined') {
-    try { window.analytics?.track?.('headline_variant', { variant }); } catch {}
-  }
-  return <h2 className="text-2xl sm:text-3xl font-semibold">{text}</h2>;
+/** Copy variant chosen by `?variant=b`; there is no assignment or tracking behind it. */
+export function ABHeadline({ id }: { id?: string }) {
+  const variant = useSearchParams().get('variant')?.toLowerCase() === 'b' ? 'b' : 'a';
+  return <h2 id={id} className="text-3xl font-semibold sm:text-4xl">{HEADLINES[variant]}</h2>;
 }

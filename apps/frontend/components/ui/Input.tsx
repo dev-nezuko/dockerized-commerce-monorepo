@@ -1,8 +1,10 @@
 import React from 'react';
 
-type Props = React.InputHTMLAttributes<HTMLInputElement>;
+export const fieldClass = 'w-full rounded-xl border border-moss-600 bg-white px-4 py-3 text-ink placeholder:text-ink-soft aria-[invalid=true]:border-clay-700';
 
-export const Input = React.forwardRef<HTMLInputElement, Props>(function Input({ className = '', ...props }, ref) {
-  const base = 'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black';
-  return <input ref={ref} className={`${base} ${className}`} {...props} />;
+export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(function Input(
+  { className = '', ...props },
+  ref,
+) {
+  return <input ref={ref} className={`${fieldClass} ${className}`} {...props} />;
 });

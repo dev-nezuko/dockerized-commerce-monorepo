@@ -1,13 +1,17 @@
 import React from 'react';
 
-type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: 'primary' | 'secondary';
+type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' };
+
+const VARIANTS = {
+  primary: 'bg-forest-800 text-cream hover:bg-forest-950',
+  secondary: 'border border-moss-600 bg-white text-forest-950 hover:bg-sage-50',
 };
 
 export function Button({ variant = 'primary', className = '', ...props }: Props) {
-  const base = 'inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors motion-safe:hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';
-  const styles = variant === 'primary'
-    ? 'bg-black text-white focus-visible:ring-black'
-    : 'bg-gray-100 text-gray-900 focus-visible:ring-gray-300';
-  return <button className={`${base} ${styles} ${className}`} {...props} />;
+  return (
+    <button
+      className={`inline-flex items-center justify-center rounded-full px-5 py-2.5 font-semibold transition-colors ${VARIANTS[variant]} ${className}`}
+      {...props}
+    />
+  );
 }

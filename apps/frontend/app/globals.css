@@ -1,11 +1,41 @@
 @import "tailwindcss";
+
+/* Forest and moss from the bottle illustration, cork clay as the accent,
+   on a warm paper background. */
+@theme {
+  --color-forest-950: #0c2a1f;
+  --color-forest-800: #1d4636;
+  --color-moss-600: #3f6c5a;
+  --color-sage-100: #e6eee6;
+  --color-sage-50: #f1f5ef;
+  --color-paper: #fbf8f1;
+  --color-cream: #f3ead8;
+  --color-clay-700: #7c5132;
+  --color-clay-300: #d8b38e;
+  --color-ink: #16302a;
+  --color-ink-soft: #4b5f57;
+  --font-display: var(--font-fraunces), "Iowan Old Style", Georgia, serif;
+  --font-sans: var(--font-karla), "Segoe UI", system-ui, sans-serif;
+}
+
+@utility container {
+  width: min(1120px, calc(100% - 40px));
+  margin-inline: auto;
+}
+
 :root { color-scheme: light; }
 html { scroll-behavior: smooth; }
-body { margin: 0; background: #fafcf9; color: #17372c; }
-.container { width: min(1120px, calc(100% - 40px)); margin-inline: auto; }
-button, a, input, textarea { outline-offset: 4px; }
-button:disabled { cursor: wait; }
+body {
+  margin: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; }
+:focus-visible { outline: 3px solid var(--color-clay-700); outline-offset: 3px; }
+button:disabled { cursor: progress; opacity: 0.7; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
-  *, *::before, *::after { animation: none !important; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
 }

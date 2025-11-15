@@ -1,11 +1,8 @@
 import useSWR from 'swr';
+
 import { apiFetch } from '../lib/api';
 
-export function useApiSWR<T>(key: string | null, url: string | null) {
-  return useSWR<T>(key, () => {
-    if (!url) throw new Error('No URL');
-    return apiFetch<T>(url);
-  }, {
-    revalidateOnFocus: false,
-  });
+/** SWR keyed by the API path, so a server-rendered fallback under the same key is reused. */
+export function useApiSWR<T>(path: string | null) {
+  return useSWR<T>(path, (key: string) => apiFetch<T>(key), { revalidateOnFocus: false });
 }

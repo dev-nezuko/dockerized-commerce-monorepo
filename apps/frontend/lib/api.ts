@@ -1,69 +1,55 @@
 import { env } from './env';
 
-class ApiError extends Error {
-  status: number;
-  body?: unknown;
-  constructor(message: string, status: number, body?: unknown) {
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly body?: unknown,
+  ) {
     super(message);
-    this.status = status;
-    this.body = body;
+    this.name = 'ApiError';
   }
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+function resolveUrl(path: string): string {
+  if (/^https?:\/\//.test(path)) return path;
+  // Server-side rendering talks to the API over the internal network.
+  const base = typeof window === 'undefined' ? env.INTERNAL_API_URL : env.NEXT_PUBLIC_API_URL;
+  return `${base.replace(/\/$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
 }
 
-function randomId(): string {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
-
+/**
+ * JSON fetch with a per-attempt timeout. Only GET and HEAD are retried:
+ * repeating a POST after a lost response could store the enquiry twice.
+ */
 export async function apiFetch<T>(path: string, init?: RequestInit & { timeoutMs?: number; retries?: number }): Promise<T> {
   const timeoutMs = init?.timeoutMs ?? 8000;
   const method = (init?.method || 'GET').toUpperCase();
   const retries = method === 'GET' || method === 'HEAD' ? (init?.retries ?? 2) : 0;
-
-  // Use INTERNAL_API_URL on the server (SSR) to avoid container DNS issues
-  const isServer = typeof window === 'undefined';
-  if (!path.startsWith('http')) {
-    if (isServer) {
-      const base = process.env.INTERNAL_API_URL || env.INTERNAL_API_URL;
-      path = `${base}${path}`;
-    } else {
-      // In the browser, hit Nginx at the same origin
-      path = `${env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')}${path.startsWith('/') ? '' : '/'}${path}`;
-    }
-  }
-  const url = path;
-  const headers: HeadersInit = {
-    'content-type': 'application/json',
-    'x-request-id': randomId(),
-    ...(init?.headers || {}),
-  };
+  const url = resolveUrl(path);
+  const headers: HeadersInit = { 'content-type': 'application/json', ...(init?.headers || {}) };
 
   const attempt = async (i: number): Promise<Response> => {
+    // A fresh controller per attempt: an aborted signal cannot be reused.
     const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, { ...init, headers, signal: controller.signal });
-      clearTimeout(id);
-      return res;
+      return await fetch(url, { ...init, headers, signal: controller.signal });
     } catch (err) {
-      clearTimeout(id);
       if (i >= retries) throw err;
-      const backoff = Math.min(1000 * Math.pow(2, i), 3000);
-      await sleep(backoff);
+      await sleep(Math.min(1000 * 2 ** i, 3000));
       return attempt(i + 1);
+    } finally {
+      clearTimeout(timer);
     }
   };
 
   const res = await attempt(0);
   if (!res.ok) {
-    let data: unknown;
-    try { data = await res.json(); } catch {}
-    throw new ApiError(`API ${res.status}`, res.status, data);
+    const body: unknown = await res.json().catch(() => undefined);
+    throw new ApiError(`API ${res.status}`, res.status, body);
   }
   return (await res.json()) as T;
 }
-
-export { ApiError };

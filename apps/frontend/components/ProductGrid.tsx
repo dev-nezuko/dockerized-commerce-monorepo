@@ -1,38 +1,49 @@
-"use client";
+'use client';
 
-import React from 'react';
-import { ProductCard, ProductCardSkeleton, type Product } from './ProductCard';
 import { useApiSWR } from '../hooks/useApiSWR';
+import { ProductCard, ProductCardSkeleton, type Product } from './ProductCard';
 import { Button } from './ui/Button';
 
-export function ProductGrid({ initialKey }: { initialKey: string }) {
-  const { data, error, mutate, isLoading } = useApiSWR<{ items: Product[] }>(initialKey, initialKey);
+const GRID = 'grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3';
 
-  if (error) {
+export function ProductGrid({ catalogKey }: { catalogKey: string }) {
+  const { data, error, mutate, isValidating } = useApiSWR<{ items: Product[]; total: number }>(catalogKey);
+
+  if (error && !data) {
     return (
-      <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-4 text-red-800">
-        We’re a bit busy—please retry.
-        <div className="mt-3">
-          <Button onClick={() => mutate()}>Retry</Button>
-        </div>
+      <div role="alert" className="rounded-2xl border border-clay-300 bg-cream p-6">
+        <p className="font-semibold">The catalog could not be loaded.</p>
+        <p className="mt-1 text-ink-soft">The product service did not answer. Check your connection and try again.</p>
+        <Button className="mt-4" onClick={() => mutate()} disabled={isValidating}>
+          {isValidating ? 'Retrying…' : 'Try again'}
+        </Button>
       </div>
     );
   }
 
-  if (!data || isLoading) {
+  // Server-rendered fallback data counts as data; SWR still flags isLoading
+  // while it revalidates, which would hide the catalog behind skeletons.
+  if (!data) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" aria-busy="true" aria-live="polite">
-        {Array.from({ length: 6 }).map((_, i) => <ProductCardSkeleton key={i} />)}
+      <div className={GRID} role="status" aria-label="Loading products">
+        {Array.from({ length: 6 }, (_, i) => <ProductCardSkeleton key={i} />)}
       </div>
     );
   }
 
-  const items = data.items ?? [];
+  if (data.items.length === 0) {
+    return (
+      <p role="status" className="rounded-2xl border border-dashed border-moss-600 p-6 text-ink-soft">
+        No bottles are listed yet. Load the demo catalog with <code className="font-mono text-sm">make init</code>.
+      </p>
+    );
+  }
 
-  if (items.length === 0) return <p role="status">No products have been added yet.</p>;
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" aria-live="polite">
-      {items.map((p) => <ProductCard key={p.id} product={p} />)}
-    </div>
+    <ul className={GRID}>
+      {data.items.map((product) => (
+        <li key={product.id}><ProductCard product={product} /></li>
+      ))}
+    </ul>
   );
 }
