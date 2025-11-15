@@ -8,6 +8,15 @@ export function requiredValue(key: string, minimum = 1): string {
   if (!value || value.length < minimum) throw new Error(`Configure ${key} with at least ${minimum} characters`);
   return value;
 }
+
+/** Express `trust proxy`: unset/false trusts nothing, a number trusts that many hops. */
+function trustProxy(raw: string | undefined): boolean | number {
+  if (!raw || raw === 'false') return false;
+  const hops = Number(raw);
+  if (!Number.isInteger(hops) || hops < 1) throw new Error('TRUST_PROXY must be false or a positive hop count');
+  return hops;
+}
+
 export const env = {
   NODE_ENV: process.env.NODE_ENV ?? 'development',
   PORT: Number(process.env.PORT ?? 4000),
@@ -15,4 +24,5 @@ export const env = {
   DATABASE_URL: requiredValue('DATABASE_URL'),
   JWT_SECRET: requiredValue('JWT_SECRET', 32),
   REDIS_URL: process.env.REDIS_URL ?? 'redis://localhost:6379',
+  TRUST_PROXY: trustProxy(process.env.TRUST_PROXY),
 };

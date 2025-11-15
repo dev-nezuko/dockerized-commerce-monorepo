@@ -1,12 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity({ name: 'lead' })
-@Index('idx_lead_email', ['email'], { unique: true })
+@Index('idx_lead_email', ['email'])
 export class Lead {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'varchar', length: 320, unique: true })
+  @Column({ type: 'varchar', length: 320 })
   email!: string;
 
   @Column({ type: 'varchar', length: 120 })

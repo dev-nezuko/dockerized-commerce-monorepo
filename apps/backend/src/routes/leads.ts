@@ -1,36 +1,27 @@
 import express from 'express';
 import { z } from 'zod';
+
 import { AppDataSource } from '../data-source';
 import { Lead } from '../entities/Lead';
-import { validate } from '../middleware/validate';
 import { rateLimitRedis } from '../middleware/ratelimit';
+import { validate } from '../middleware/validate';
 
 const leadSchema = z.object({
-  email: z.email().max(254),
-  name: z.string().min(1).max(120),
-  message: z.string().min(1).max(500),
-  utmSource: z.string().max(200).optional(),
+  email: z.email().max(254).trim().toLowerCase(),
+  name: z.string().trim().min(1).max(120),
+  message: z.string().trim().min(1).max(500),
+  utmSource: z.string().trim().max(120).optional(),
 });
 
 export function leadsRouter(): express.Router {
   const router = express.Router();
   const repo = AppDataSource.getRepository(Lead);
 
-  router.post(
-    '/api/leads',
-    rateLimitRedis({ windowSec: 60, max: 5 }),
-    validate(leadSchema),
-    async (req, res, next) => {
-      try {
-        const exists = await repo.findOne({ where: { email: req.body.email } });
-        if (exists) return res.status(200).json({ id: exists.id });
-        const lead = await repo.save(repo.create(req.body));
-        res.status(201).json(lead);
-      } catch (err) {
-        next(err);
-      }
-    }
-  );
+  // Every enquiry is stored, including repeat enquiries from the same address.
+  router.post('/api/leads', rateLimitRedis({ name: 'leads', windowSec: 60, max: 5 }), validate(leadSchema), async (req, res) => {
+    const lead = await repo.save(repo.create(req.body as z.infer<typeof leadSchema>));
+    res.status(201).json({ id: lead.id, createdAt: lead.createdAt });
+  });
 
   return router;
 }

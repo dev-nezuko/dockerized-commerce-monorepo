@@ -1,28 +1,32 @@
+import { randomUUID } from 'node:crypto';
+
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { randomUUID } from 'crypto';
-import { AppDataSource } from '../data-source';
-import { User } from '../entities/User';
+
 import { env } from '../config/env';
 import { redis } from '../config/redis';
-import { AuthError } from '../middleware/error';
+import { AppDataSource } from '../data-source';
+import { User } from '../entities/User';
+import { AuthError, ConflictError } from '../middleware/error';
+
+const BCRYPT_ROUNDS = 12;
+// Compared against when the email is unknown, so a miss costs the same bcrypt
+// time as a wrong password and response timing does not reveal accounts.
+const UNKNOWN_USER_HASH = bcrypt.hashSync(randomUUID(), BCRYPT_ROUNDS);
 
 const userRepo = () => AppDataSource.getRepository(User);
 
 export async function register(email: string, password: string): Promise<User> {
   const existing = await userRepo().findOne({ where: { email } });
-  if (existing) throw new AuthError('Email already in use');
-  const passwordHash = await bcrypt.hash(password, 12);
-  const user = userRepo().create({ email, passwordHash });
-  return await userRepo().save(user);
+  if (existing) throw new ConflictError('Email already in use');
+  const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  return userRepo().save(userRepo().create({ email, passwordHash }));
 }
 
-export async function login(email: string, password: string): Promise<{ token: string; jti: string; }>
-{
+export async function login(email: string, password: string): Promise<{ token: string; jti: string }> {
   const user = await userRepo().findOne({ where: { email } });
-  if (!user) throw new AuthError('Invalid credentials');
-  const ok = await bcrypt.compare(password, user.passwordHash);
-  if (!ok) throw new AuthError('Invalid credentials');
+  const ok = await bcrypt.compare(password, user?.passwordHash ?? UNKNOWN_USER_HASH);
+  if (!user || !ok) throw new AuthError('Invalid credentials');
 
   const jti = randomUUID();
   const token = jwt.sign({ sub: user.id, email: user.email }, env.JWT_SECRET, {
@@ -34,17 +38,7 @@ export async function login(email: string, password: string): Promise<{ token: s
 }
 
 export async function logout(jti: string, expSeconds: number): Promise<void> {
-  const key = `bl:${jti}`;
-  await redis.set(key, '1', 'EX', expSeconds);
-}
-
-export function getTokenJti(token: string): string | undefined {
-  try {
-    const decoded = jwt.decode(token, { json: true });
-    return decoded?.jti;
-  } catch {
-    return undefined;
-  }
+  await redis.set(`bl:${jti}`, '1', 'EX', expSeconds);
 }
 
 export function verify(token: string): { userId: string; email: string; exp: number; jti: string } {
@@ -58,7 +52,5 @@ export function verify(token: string): { userId: string; email: string; exp: num
 }
 
 export async function isBlacklisted(jti: string): Promise<boolean> {
-  const key = `bl:${jti}`;
-  const val = await redis.get(key);
-  return val === '1';
+  return (await redis.get(`bl:${jti}`)) === '1';
 }
