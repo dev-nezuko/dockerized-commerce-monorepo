@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { ZodError } from 'zod';
+import { ZodError, flattenError } from 'zod';
 
 export class NotFoundError extends Error {
   status = 404 as const;
@@ -21,7 +21,7 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   const traceId = req.id === undefined ? undefined : String(req.id);
 
   if (err instanceof ZodError) {
-    res.status(400).json({ error: 'ValidationError', details: err.flatten(), traceId });
+    res.status(400).json({ error: 'ValidationError', details: flattenError(err), traceId });
     return;
   }
 

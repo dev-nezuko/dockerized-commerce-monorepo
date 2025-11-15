@@ -1,5 +1,8 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import { existsSync } from 'node:fs';
+
+// Values already present in the environment win over the file.
+if (existsSync('.env')) process.loadEnvFile('.env');
+
 export function requiredValue(key: string, minimum = 1): string {
   const value = process.env[key];
   if (!value || value.length < minimum) throw new Error(`Configure ${key} with at least ${minimum} characters`);

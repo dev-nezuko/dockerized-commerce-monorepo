@@ -6,7 +6,7 @@ import { validate } from '../middleware/validate';
 import { rateLimitRedis } from '../middleware/ratelimit';
 
 const leadSchema = z.object({
-  email: z.string().email().max(254),
+  email: z.email().max(254),
   name: z.string().min(1).max(120),
   message: z.string().min(1).max(500),
   utmSource: z.string().max(200).optional(),

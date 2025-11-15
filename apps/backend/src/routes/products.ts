@@ -11,7 +11,7 @@ const createSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
   priceCents: z.number().int().min(0),
-  imageUrl: z.string().url(),
+  imageUrl: z.url(),
   shortDescription: z.string().min(1),
 });
 
@@ -103,7 +103,7 @@ export function productsRouter(): express.Router {
 
   router.put('/api/products/:id', demoWrites, requireAuth(), validate(updateSchema), async (req, res, next) => {
     try {
-      const existing = await repo.findOne({ where: { id: req.params.id } });
+      const existing = await repo.findOne({ where: { id: String(req.params.id) } });
       if (!existing) return res.status(404).json({ error: 'Not Found' });
       const oldSlug = existing.slug;
       repo.merge(existing, req.body as Partial<Product>);
@@ -119,7 +119,7 @@ export function productsRouter(): express.Router {
 
   router.delete('/api/products/:id', demoWrites, requireAuth(), async (req, res, next) => {
     try {
-      const existing = await repo.findOne({ where: { id: req.params.id } });
+      const existing = await repo.findOne({ where: { id: String(req.params.id) } });
       if (!existing) return res.status(404).json({ error: 'Not Found' });
       await repo.remove(existing);
       await invalidateBySet('products:keys');

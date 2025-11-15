@@ -4,8 +4,8 @@ import { register as svcRegister, login as svcLogin, logout as svcLogout, getTok
 import { requireAuth, AuthenticatedRequest } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 
-const registerSchema = z.object({ email: z.string().email(), password: z.string().min(8) });
-const loginSchema = z.object({ email: z.string().email(), password: z.string().min(8) });
+const registerSchema = z.object({ email: z.email(), password: z.string().min(8) });
+const loginSchema = z.object({ email: z.email(), password: z.string().min(8) });
 
 export function authRouter(): express.Router {
   const router = express.Router();

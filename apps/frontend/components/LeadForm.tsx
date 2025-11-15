@@ -12,7 +12,7 @@ import { env } from '../lib/env';
 
 const schema = z.object({
   name: z.string().min(2).max(120),
-  email: z.string().email().max(254),
+  email: z.email().max(254),
   message: z.string().min(1).max(500),
   utmSource: z.string().max(200).optional(),
 });
