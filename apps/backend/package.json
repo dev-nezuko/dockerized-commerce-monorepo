@@ -10,11 +10,11 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "typeorm": "typeorm-ts-node-commonjs",
-    "migration:gen": "pnpm typeorm migration:generate -d src/data-source.ts src/migrations/Auto",
-    "migration:run": "pnpm typeorm migration:run -d src/data-source.ts",
     "seed": "node -r ./scripts/register-ts.cjs src/seeds/seed.ts",
-    "test": "node --test test/*.test.cjs"
+    "test": "node --test test/*.test.cjs",
+    "migrate": "tsc -p tsconfig.json && node dist/migrate.js",
+    "migration:generate": "tsc -p tsconfig.json && typeorm migration:generate -d dist/data-source.js -p",
+    "test:integration": "node --test test/integration.test.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

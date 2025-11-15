@@ -128,8 +128,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: >
-      node -e "require('reflect-metadata'); const { AppDataSource } = require('./dist/data-source'); AppDataSource.initialize().then(() => AppDataSource.synchronize(false)).then(() => AppDataSource.destroy()).catch((e)=>{console.error(e); process.exit(1);});"
+    command: node dist/migrate.js
     restart: "no"
 
   seed:
