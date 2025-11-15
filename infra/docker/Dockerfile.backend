@@ -1,19 +1,23 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 COPY apps/backend/package.json apps/backend/package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
-COPY apps/backend/tsconfig.json ./tsconfig.json
+COPY apps/backend/tsconfig.json apps/backend/openapi.yaml ./
 COPY apps/backend/src ./src
-COPY apps/backend/openapi.yaml ./openapi.yaml
 RUN npm run build
 
-FROM node:20-alpine AS runner
+# Used by `docker compose --profile test run --rm backend-test`.
+FROM builder AS test
+COPY apps/backend/eslint.config.mjs ./
+COPY apps/backend/scripts ./scripts
+COPY apps/backend/test ./test
+CMD ["sh", "-c", "npm run typecheck && npm run lint && npm test"]
+
+FROM node:22-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
-ENV HOST=0.0.0.0
-ENV PORT=4000
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=4000
 COPY --from=builder /app/package.json /app/package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
+RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund && npm cache clean --force
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/openapi.yaml ./openapi.yaml
 USER node

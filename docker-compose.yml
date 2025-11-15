@@ -1,4 +1,31 @@
-version: "3.9"
+# Shared by both API replicas and the one-off db-init / seed jobs.
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql://eco_user:${POSTGRES_PASSWORD:?Set a private POSTGRES_PASSWORD}@postgres:5432/eco_db
+  REDIS_URL: redis://redis:6379
+  JWT_SECRET: ${JWT_SECRET:?Set a private JWT_SECRET of at least 32 characters}
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  PORT: 4000
+  FRONTEND_ORIGIN: http://localhost:8080
+  # Nginx is the single proxy in front of the API.
+  TRUST_PROXY: 1
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: infra/docker/Dockerfile.backend
+  environment: *backend-env
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "node", "-e", "fetch('http://localhost:4000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+    interval: 10s
+    timeout: 5s
+    retries: 5
+  restart: unless-stopped
 
 services:
   postgres:
@@ -13,9 +40,9 @@ services:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U eco_user -d eco_db"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     restart: unless-stopped
 
   redis:
@@ -26,74 +53,27 @@ services:
       - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
     restart: unless-stopped
 
-  backend-1:
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.backend
-    container_name: backend-1
-    environment:
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL for the Compose postgres service}
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?Set a private JWT_SECRET}
-      HOST: 0.0.0.0
-      FRONTEND_ORIGIN: http://localhost:8080
-      PORT: 4000
-      TRUST_PROXY: 1
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  backend-2:
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.backend
-    container_name: backend-2
-    environment:
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL for the Compose postgres service}
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?Set a private JWT_SECRET}
-      HOST: 0.0.0.0
-      FRONTEND_ORIGIN: http://localhost:8080
-      PORT: 4000
-      TRUST_PROXY: 1
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:4000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+  backend-1: *backend
+  backend-2: *backend
 
   frontend:
     build:
       context: .
       dockerfile: infra/docker/Dockerfile.frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8080/api
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8080/api
-      INTERNAL_API_URL: http://nginx:80/api
-      PORT: 3000
+      INTERNAL_API_URL: http://nginx/api
     depends_on:
       backend-1:
-        condition: service_started
+        condition: service_healthy
       backend-2:
-        condition: service_started
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
@@ -111,53 +91,93 @@ services:
       frontend:
         condition: service_started
       backend-1:
-        condition: service_started
+        condition: service_healthy
       backend-2:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
 
-  db-init:
-    profiles: ["demo-init"]
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.backend
-    environment:
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL for the Compose postgres service}
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?Set a private JWT_SECRET}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    command: node dist/migrate.js
-    restart: "no"
-
-  seed:
-    profiles: ["demo-init"]
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.backend
-    environment:
-      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL for the Compose postgres service}
-      REDIS_URL: redis://redis:6379
-      JWT_SECRET: ${JWT_SECRET:?Set a private JWT_SECRET}
-      SEED_USER_EMAIL: ${SEED_USER_EMAIL:?Set local SEED_USER_EMAIL}
-      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:?Set private SEED_USER_PASSWORD}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      db-init:
-        condition: service_completed_successfully
-    command: node dist/seeds/seed.js
-    restart: "no"
-
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v3.16.0
     command:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./infra/docker/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
       - "127.0.0.1:9090:9090"
+    depends_on:
+      - backend-1
+      - backend-2
+    restart: unless-stopped
+
+  # docker compose --profile demo-init run --rm db-init   (applies migrations)
+  db-init:
+    <<: *backend
+    profiles: ["demo-init"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    command: node dist/migrate.js
+    restart: "no"
+
+  # docker compose --profile demo-init run --rm seed      (demo products + one account)
+  seed:
+    <<: *backend
+    profiles: ["demo-init"]
+    environment:
+      <<: *backend-env
+      SEED_USER_EMAIL: ${SEED_USER_EMAIL:?Set SEED_USER_EMAIL}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:?Set a private SEED_USER_PASSWORD of at least 12 characters}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+    command: node dist/seeds/seed.js
+    restart: "no"
+
+  # docker compose --profile test run --rm backend-test
+  # Unit and integration tests against throwaway, unpublished databases.
+  backend-test:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.backend
+      target: test
+    environment:
+      TEST_DATABASE_URL: postgresql://eco_test@postgres-test:5432/eco_test
+      TEST_REDIS_URL: redis://redis-test:6379/0
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+
+  postgres-test:
+    profiles: ["test"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: eco_test
+      POSTGRES_USER: eco_test
+      # Reachable only on the Compose network and stored in tmpfs.
+      POSTGRES_HOST_AUTH_METHOD: trust
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eco_test -d eco_test"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  redis-test:
+    profiles: ["test"]
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
 volumes:
   pgdata:
